@@ -133,6 +133,7 @@ class Ship {
     this.invincible    = 3;
     this.shootCooldown = 0;
     this.speedBoost    = 0;
+    this.tripleShot    = 0;
     this.dead          = false;
   }
 
@@ -141,6 +142,7 @@ class Ship {
     if (this.invincible    > 0) this.invincible    -= dt;
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
     if (this.speedBoost    > 0) this.speedBoost    -= dt;
+    if (this.tripleShot    > 0) this.tripleShot    -= dt;
 
     const ROT   = 3.5;   // rad/s
     const THRUST = 260;  // px/s²
@@ -168,6 +170,14 @@ class Ship {
     const NOSE = 21;
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
+    if (this.tripleShot > 0) {
+      const SPREAD = 0.18;   // rad (~10°) entre balas del abanico
+      return [
+        new Bullet(ox, oy, this.angle - SPREAD),
+        new Bullet(ox, oy, this.angle),
+        new Bullet(ox, oy, this.angle + SPREAD),
+      ];
+    }
     return [new Bullet(ox, oy, this.angle)];
   }
 
@@ -240,11 +250,12 @@ class Particle {
   }
 }
 
-// ── Power-up (Velocidad) ──────────────────────────────────────────────────────
+// ── Power-ups (Velocidad / Disparo Triple) ────────────────────────────────────
 class PowerUp {
-  constructor(x, y) {
+  constructor(x, y, type = 'speed') {
     this.x = x;
     this.y = y;
+    this.type = type;
     this.radius = 12;
     this.ttl  = 8;
     this.dead = false;
@@ -266,10 +277,12 @@ class PowerUp {
     // Parpadeo de aviso antes de desaparecer
     if (this.ttl < 2 && Math.floor(this.ttl * 8) % 2 === 0) return;
 
+    const color  = this.type === 'triple' ? '#f6f' : '#ff0';
+    const letter = this.type === 'triple' ? 'T' : 'V';
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.strokeStyle = '#ff0';
-    ctx.fillStyle   = '#ff0';
+    ctx.strokeStyle = color;
+    ctx.fillStyle   = color;
     ctx.lineWidth   = 1.5;
     ctx.beginPath();
     ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
@@ -277,7 +290,7 @@ class PowerUp {
     ctx.font         = 'bold 13px monospace';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('V', 0, 1);
+    ctx.fillText(letter, 0, 1);
     ctx.restore();
   }
 }
@@ -479,7 +492,8 @@ function update(dt) {
         a.dead = true;
         score += POINTS[a.size];
         explode(a.x, a.y, a.size * 5);
-        if (Math.random() < 0.15) powerups.push(new PowerUp(a.x, a.y));
+        if (Math.random() < 0.15)
+          powerups.push(new PowerUp(a.x, a.y, Math.random() < 0.5 ? 'triple' : 'speed'));
         newAsteroids.push(...a.split());
       }
     }
@@ -515,7 +529,8 @@ function update(dt) {
   for (const p of powerups) {
     if (!p.dead && dist(ship, p) < ship.radius + p.radius) {
       p.dead = true;
-      ship.speedBoost = 5;
+      if (p.type === 'triple') ship.tripleShot = 5;
+      else                     ship.speedBoost = 5;
     }
   }
   powerups = powerups.filter(p => !p.dead);
@@ -558,6 +573,18 @@ function drawHUD() {
     ctx.strokeRect(14, 54, 110, 8);
     ctx.fillStyle = 'rgba(0, 220, 255, 0.85)';
     ctx.fillRect(15, 55, 108 * frac, 6);
+  }
+
+  // Barra de duración del power-up Disparo Triple (5s)
+  if (ship.tripleShot > 0) {
+    const frac = ship.tripleShot / 5;
+    ctx.fillStyle = '#fff';
+    ctx.fillText('DISPARO TRIPLE', 14, 70);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth   = 1;
+    ctx.strokeRect(14, 76, 110, 8);
+    ctx.fillStyle = 'rgba(255, 102, 255, 0.85)';
+    ctx.fillRect(15, 77, 108 * frac, 6);
   }
 
   ctx.textAlign = 'center';
