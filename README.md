@@ -24,11 +24,13 @@ Luego visita `http://localhost:3000`.
 
 ## Controles
 
-| Tecla     | Acción     |
-| --------- | ---------- |
-| `←` `→`   | Rotar nave |
-| `↑`       | Propulsar  |
-| `Espacio` | Disparar   |
+| Tecla       | Acción                          |
+| ----------- | ------------------------------- |
+| `←` `→`     | Rotar nave                      |
+| `↑`         | Propulsar                       |
+| `Espacio`   | Disparar                        |
+| `C`         | Cambiar skin de la nave         |
+| `←` `→` (en GAME OVER) | Cambiar skin de la nave |
 
 ## Puntuación
 
@@ -46,3 +48,4 @@ Luego visita `http://localhost:3000`.
 - Partículas de explosión al destruir asteroides
 - Power-up "Velocidad": al destruir asteroides puede aparecer; duplica la propulsión durante 5 segundos
 - Estrella fugaz: asteroide especial que aparece cada 12 segundos; se mueve muy rápido con estela y desaparece a los 4 segundos. Otorga 300 puntos
+- Skins de nave: 4 apariencias (CLÁSICA, DARDO, CAZA, HALCÓN) con silueta y color propios. Se cambian con `C` en juego o con `←` `→` en la pantalla de GAME OVER, y se guardan en `localStorage`
