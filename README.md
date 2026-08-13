@@ -48,5 +48,6 @@ Luego visita `http://localhost:3000`.
 - Partículas de explosión al destruir asteroides
 - Power-up "Velocidad": al destruir asteroides puede aparecer; duplica la propulsión durante 5 segundos
 - Power-up "Disparo triple": al destruir asteroides puede aparecer; la nave dispara 3 balas en abanico durante 5 segundos
+- Power-up "Escudo": al destruir asteroides puede aparecer; protege a la nave de colisiones con asteroides y estrellas fugaces durante 5 segundos (burbuja azul y barra en el HUD)
 - Estrella fugaz: asteroide especial que aparece cada 12 segundos; se mueve muy rápido con estela y desaparece a los 4 segundos. Otorga 300 puntos
 - Skins de nave: 4 apariencias (CLÁSICA, DARDO, CAZA, HALCÓN) con silueta y color propios. Se cambian con `C` en juego o con `←` `→` en la pantalla de GAME OVER, y se guardan en `localStorage`
