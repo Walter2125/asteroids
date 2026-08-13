@@ -13,5 +13,6 @@ Single-page HTML5 Canvas asteroids clone. No build, bundler, tests, lint, or dep
 - Entities follow a `dead` flag + `filter(p => !p.dead)` cleanup pattern each frame; new entities (power-ups, etc.) should do the same.
 - Two input mechanisms: `keys[...]` = held state (used for rotation/thrust in `Ship.update`); `pressed(code)` = edge-triggered, consumed on read (used for shooting/restart). Don't mix them up.
 - Position wraps toroidally via `wrap(v, max)` for ship, bullets, asteroids.
-- State machine in `update(dt)`: `'playing' | 'dead' | 'gameover'`; new states must be handled in `update`, `draw`, and `drawOverlay`.
+- State machine in `update(dt)`: `'playing' | 'dead' | 'gameover'`; new states must be handled in `update`, `draw`, and `drawGameOver`.
 - `dt` in `loop(ts)` is clamped to `0.05s`. Use `dt` everywhere for physics.
+- Skins: the `SKINS` array defines ship appearances (`name`, `color`, `hull` points, nose at +x). `Ship.draw`, `drawLifeIcon` and the game-over selector all render the active skin via `traceHull(skin.hull)`; selection lives in `skinIndex` (persisted to `localStorage`), changed with `KeyC` in-game or arrow keys in game-over via `cycleSkin(dir)`.
