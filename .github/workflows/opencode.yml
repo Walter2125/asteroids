@@ -18,12 +18,17 @@ jobs:
       id-token: write
       contents: write
       pull-requests: write
-      issues: write
+      issues: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
           persist-credentials: false
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
 
       - name: Run opencode
         uses: anomalyco/opencode/github@latest
