@@ -125,6 +125,7 @@ const SKINS = [
   { name: 'DARDO',   color: '#0ff', hull: [[24, 0], [-12, -5], [-8, 0], [-12, 5]] },
   { name: 'CAZA',    color: '#f0f', hull: [[18, 0], [2, -5], [-8, -14], [-5, -4], [-10, 0], [-5, 4], [-8, 14], [2, 5]] },
   { name: 'HALCÓN',  color: '#ff0', hull: [[20, 0], [0, -6], [-14, -12], [-8, 0], [-14, 12], [0, 6]] },
+  { name: 'GIGANTE', color: '#a0f', hull: [[20, 0], [-12, -9], [-7, 0], [-12, 9]], scale: 2, scoreMult: 2 },
 ];
 
 const SKIN_KEY = 'asteroids-skin';
@@ -135,6 +136,7 @@ function cycleSkin(dir) {
   skinIndex = wrap(skinIndex + dir, SKINS.length);
   localStorage.setItem(SKIN_KEY, skinIndex);
   skinToast = 1.5;
+  if (ship) ship.radius = 12 * (SKINS[skinIndex].scale || 1);
 }
 
 // Traza la silueta de una skin en el contexto (sin stroke/fill)
@@ -155,7 +157,7 @@ class Ship {
     this.angle  = -Math.PI / 2;
     this.vx     = 0;
     this.vy     = 0;
-    this.radius = 12;
+    this.radius = 12 * (SKINS[skinIndex].scale || 1);
     this.thrusting     = false;
     this.invincible    = 3;
     this.shootCooldown = 0;
@@ -196,7 +198,7 @@ class Ship {
   tryShoot() {
     if (this.shootCooldown > 0 || this.dead) return [];
     this.shootCooldown = 0.2;
-    const NOSE = 21;
+    const NOSE = 21 * (SKINS[skinIndex].scale || 1);
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
     if (this.tripleShot > 0) {
@@ -221,7 +223,7 @@ class Ship {
       ctx.strokeStyle = `rgba(80, 170, 255, ${pulse.toFixed(2)})`;
       ctx.lineWidth   = 1.5;
       ctx.beginPath();
-      ctx.arc(0, 0, 22, 0, Math.PI * 2);
+      ctx.arc(0, 0, 22 * (SKINS[skinIndex].scale || 1), 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
@@ -232,11 +234,14 @@ class Ship {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
-    ctx.strokeStyle = SKINS[skinIndex].color;
-    ctx.lineWidth   = 1.5;
+    const skin = SKINS[skinIndex];
+    const scale = skin.scale || 1;
+    ctx.scale(scale, scale);
+    ctx.strokeStyle = skin.color;
+    ctx.lineWidth   = 1.5 / scale;
     ctx.lineJoin    = 'round';
 
-    traceHull(SKINS[skinIndex].hull);
+    traceHull(skin.hull);
     ctx.stroke();
 
     // Llama del propulsor
@@ -529,12 +534,13 @@ function update(dt) {
 
   // Bala vs asteroide
   const newAsteroids = [];
+  const scoreMult = SKINS[skinIndex].scoreMult || 1;
   for (const b of bullets) {
     for (const a of asteroids) {
       if (!a.dead && !b.dead && dist(b, a) < a.radius) {
         b.dead = true;
         a.dead = true;
-        score += POINTS[a.size];
+        score += POINTS[a.size] * scoreMult;
         explode(a.x, a.y, a.size * 5);
         if (Math.random() < 0.15) {
           const r = Math.random();
@@ -553,7 +559,7 @@ function update(dt) {
       if (!s.dead && !b.dead && dist(b, s) < s.radius) {
         b.dead = true;
         s.dead = true;
-        score += STAR_POINTS;
+        score += STAR_POINTS * scoreMult;
         explode(s.x, s.y, 14);
       }
     }
@@ -606,7 +612,13 @@ function drawHUD() {
   ctx.font = '15px monospace';
 
   ctx.textAlign = 'left';
-  ctx.fillText(`SCORE  ${score}`, 14, 26);
+  const scoreStr = `SCORE  ${score}`;
+  ctx.fillText(scoreStr, 14, 26);
+  if ((SKINS[skinIndex].scoreMult || 1) > 1) {
+    ctx.fillStyle = SKINS[skinIndex].color;
+    ctx.fillText('  x2', 14 + ctx.measureText(scoreStr).width, 26);
+    ctx.fillStyle = '#fff';
+  }
 
 // Aviso breve al cambiar de skin (tecla C)
   if (skinToast > 0) {

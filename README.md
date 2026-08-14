@@ -50,4 +50,5 @@ Luego visita `http://localhost:3000`.
 - Power-up "Disparo triple": al destruir asteroides puede aparecer; la nave dispara 3 balas en abanico durante 5 segundos
 - Power-up "Escudo": al destruir asteroides puede aparecer; protege a la nave de colisiones con asteroides y estrellas fugaces durante 5 segundos (burbuja azul y barra en el HUD)
 - Estrella fugaz: asteroide especial que aparece cada 12 segundos; se mueve muy rápido con estela y desaparece a los 4 segundos. Otorga 300 puntos
-- Skins de nave: 4 apariencias (CLÁSICA, DARDO, CAZA, HALCÓN) con silueta y color propios. Se cambian con `C` en juego o con `←` `→` en la pantalla de GAME OVER, y se guardan en `localStorage`
+- Skins de nave: 5 apariencias (CLÁSICA, DARDO, CAZA, HALCÓN, GIGANTE) con silueta y color propios. Se cambian con `C` en juego o con `←` `→` en la pantalla de GAME OVER, y se guardan en `localStorage`
+- Skin GIGANTE: nave morada dos veces más grande que la original (su silueta y su hitbox se escalan x2, así es más fácil de impactar); al usarla, todos los puntos obtenidos (asteroides y estrella fugaz) se multiplican por 2 (indicador "x2" junto al SCORE en el HUD)
