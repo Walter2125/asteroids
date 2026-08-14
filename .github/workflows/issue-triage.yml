@@ -1,0 +1,141 @@
+name: Issue Triage
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - name: Triage issue
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue = context.payload.issue;
+            if (!issue) {
+              core.info('No issue payload, skipping.');
+              return;
+            }
+
+            const author = issue.user ? issue.user.login : '';
+            const isBot =
+              (issue.user && issue.user.type === 'Bot') ||
+              /^github-actions\[bot\]$/i.test(author);
+            if (isBot) {
+              core.info('Issue created by a bot / GitHub Actions, skipping.');
+              return;
+            }
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issueNumber = issue.number;
+
+            const normalize = (s) =>
+              s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+            const ES_WORDS = new Set([
+              'el', 'la', 'los', 'las', 'es', 'son', 'un', 'una', 'como',
+              'funciona', 'fallo', 'pregunta', 'duda', 'ayuda', 'mejora',
+              'agregar', 'anadir', 'nueva', 'nuevo', 'gracias', 'cuando',
+              'que', 'para', 'con', 'me', 'mi', 'te', 'tu', 'se', 'pero',
+              'nave', 'juego', 'poder', 'jugador',
+            ]);
+            const EN_WORDS = new Set([
+              'the', 'is', 'are', 'how', 'what', 'bug', 'feature', 'crash',
+              'question', 'please', 'issue', 'this', 'that', 'when', 'help',
+              'you', 'and', 'to', 'of', 'with', 'if', 'my', 'i', 'it', 'but',
+              'ship', 'game', 'power', 'player',
+            ]);
+
+            const text = normalize(
+              (issue.title + ' ' + (issue.body || '')).toLowerCase()
+            );
+            const tokens = text.match(/[a-z0-9]+/g) || [];
+
+            let esScore = 0;
+            let enScore = 0;
+            for (const t of tokens) {
+              if (ES_WORDS.has(t)) esScore++;
+              if (EN_WORDS.has(t)) enScore++;
+            }
+
+            const isSpanish = esScore >= enScore;
+            core.info(
+              'Language score -> es:' + esScore + ' en:' + enScore +
+              ' -> ' + (isSpanish ? 'es' : 'en')
+            );
+
+            const titleBody = (issue.title + ' ' + (issue.body || '')).toLowerCase();
+            const detected = [];
+            if (/(bug|error|fallo|no funciona|crash|se rompe)/i.test(titleBody)) {
+              detected.push('bug');
+            }
+            if (/(mejora|feature|agregar|anadir|añadir|enhancement|power-up)/i.test(titleBody)) {
+              detected.push('enhancement');
+            }
+            if (/(pregunta|duda|ayuda|question|how to|how do|como se|como puedo)/i.test(titleBody)) {
+              detected.push('question');
+            }
+            core.info('Detected labels: ' + (detected.join(', ') || 'none'));
+
+            const LABEL_COLORS = {
+              bug: 'd73a4a',
+              enhancement: 'a2eeef',
+              question: 'd876e3',
+            };
+
+            if (detected.length > 0) {
+              const { data: existing } = await github.rest.issues.listLabelsForRepo({
+                owner,
+                repo,
+                per_page: 100,
+              });
+              const existingNames = new Set(existing.map((l) => l.name));
+              for (const name of detected) {
+                if (!existingNames.has(name) && LABEL_COLORS[name]) {
+                  await github.rest.issues.createLabel({
+                    owner,
+                    repo,
+                    name,
+                    color: LABEL_COLORS[name],
+                  });
+                  core.info('Created label ' + name);
+                }
+              }
+            }
+
+            const descTitle = isSpanish ? '### Descripción' : '### Description';
+            const ctxTitle = isSpanish ? '### Contexto adicional' : '### Additional context';
+            const ctxHint = isSpanish
+              ? '<!-- Añade aquí cualquier información adicional que consideres relevante -->'
+              : '<!-- Add any other relevant information here -->';
+            const emptyNote = isSpanish ? '_Sin descripción._' : '_No description provided._';
+
+            const originalBody = (issue.body || '').trim();
+            const content = originalBody || emptyNote;
+
+            const newBody =
+              descTitle + '\n' + content + '\n\n' + ctxTitle + '\n' + ctxHint + '\n';
+
+            await github.rest.issues.update({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              body: newBody,
+            });
+            core.info('Issue body updated.');
+
+            if (detected.length > 0) {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                labels: detected,
+              });
+              core.info('Labels added: ' + detected.join(', '));
+            }
