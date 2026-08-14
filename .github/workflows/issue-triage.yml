@@ -6,11 +6,11 @@ on:
 
 jobs:
   triage:
+    if: ${{ github.event.issue.user.type != 'Bot' }}
     runs-on: ubuntu-latest
     permissions:
       issues: write
       contents: read
-      id-token: write
     timeout-minutes: 10
     env:
       OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
@@ -27,24 +27,6 @@ jobs:
           curl -fsSL https://opencode.ai/install | bash
           echo "$HOME/.opencode/bin" >> $GITHUB_PATH
 
-      - name: Exchange OIDC for app token
-        shell: bash
-        run: |
-          set -euo pipefail
-          oidc_resp=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=opencode-github-action")
-          oidc_jwt=$(printf '%s' "$oidc_resp" | python3 -c "import sys,json; print(json.load(sys.stdin)['value'])")
-          app_resp=$(curl -sS -X POST https://api.opencode.ai/exchange_github_app_token \
-            -H "Authorization: Bearer $oidc_jwt")
-          if ! printf '%s' "$app_resp" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d.get('token')" 2>/dev/null; then
-            echo "::error::App token exchange failed: $app_resp"
-            exit 1
-          fi
-          app_token=$(printf '%s' "$app_resp" | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
-          echo "::add-mask::$app_token"
-          echo "GH_TOKEN=$app_token" >> $GITHUB_ENV
-          printf '%s' "$app_token" > /tmp/app_token
-
       - name: Fetch issue
         shell: bash
         run: |
@@ -58,11 +40,28 @@ jobs:
         run: |
           cat > /tmp/build_prompt.py <<'PY'
           import json
+
           with open("/tmp/issue.json") as f:
               issue = json.load(f)
           title = issue.get("title", "")
           body = issue.get("body", "") or ""
-          template = """Eres el agente de triage del repositorio "03-asteroids", un clon de Asteroids en JavaScript vanilla (sin dependencias, sin bundler, sin build). Lee los archivos AGENTS.md y game.js del repositorio actual para entender el proyecto antes de clasificar.
+
+          with open("AGENTS.md", encoding="utf-8") as f:
+              agents = f.read()
+          with open("game.js", encoding="utf-8") as f:
+              gamejs = f.read()
+
+          template = """Eres el agente de triage del repositorio "03-asteroids", un clon de Asteroids en JavaScript vanilla (sin dependencias, sin bundler, sin build). A continuación se incluye el contenido de AGENTS.md y game.js como contexto del proyecto; úsalo para clasificar con precisión.
+
+          CONTENIDO DE AGENTS.md:
+          -----
+          __AGENTS__
+          -----
+
+          CONTENIDO DE game.js:
+          -----
+          __GAMEJS__
+          -----
 
           Se acaba de abrir un issue. Tu tarea es clasificarlo y reformatear su cuerpo.
 
@@ -106,9 +105,16 @@ jobs:
           - No inventes detalles técnicos que no estén en el issue.
           - El body debe ser markdown válido.
           - No incluyas el título dentro del body.
+          - No modifiques ni edites archivos del repositorio ni ejecutes comandos que los alteren.
           - Devuelve solo el JSON, nada más.
           """
-          prompt = template.replace("__TITLE__", title).replace("__BODY__", body)
+          prompt = (
+              template
+              .replace("__TITLE__", title)
+              .replace("__BODY__", body)
+              .replace("__AGENTS__", agents)
+              .replace("__GAMEJS__", gamejs)
+          )
           with open("/tmp/prompt.txt", "w") as f:
               f.write(prompt)
           PY
@@ -130,7 +136,7 @@ jobs:
         shell: bash
         run: |
           cat > /tmp/parse.py <<'PY'
-          import json, re, sys, os
+          import json, os, re, sys
 
           allowed = ["bug", "enhancement", "question", "documentation", "needs-triage"]
           allowed_set = set(allowed)
@@ -172,16 +178,35 @@ jobs:
               print("::warning::opencode no produjo salida; se omite la edición del issue")
               sys.exit(0)
 
-          m = re.search(r"```(?:json)?\s*(\{.*\})\s*```", raw, re.S)
-          if m:
-              candidate = m.group(1)
-          else:
-              s = raw.find("{")
-              e = raw.rfind("}")
-              if s != -1 and e != -1 and e > s:
-                  candidate = raw[s:e + 1]
-              else:
-                  candidate = raw
+          def extract_json(s):
+              start = s.find("{")
+              if start == -1:
+                  return s
+              depth = 0
+              in_str = False
+              esc = False
+              for i in range(start, len(s)):
+                  c = s[i]
+                  if in_str:
+                      if esc:
+                          esc = False
+                      elif c == "\\":
+                          esc = True
+                      elif c == '"':
+                          in_str = False
+                  else:
+                      if c == '"':
+                          in_str = True
+                      elif c == "{":
+                          depth += 1
+                      elif c == "}":
+                          depth -= 1
+                          if depth == 0:
+                              return s[start:i + 1]
+              return s
+
+          m = re.search(r"```(?:json)?\s*(.*?)\s*```", raw, re.S)
+          candidate = extract_json(m.group(1)) if m else extract_json(raw)
 
           try:
               data = json.loads(candidate)
@@ -252,17 +277,3 @@ jobs:
             /tmp/triage_result.json
           if-no-files-found: ignore
           retention-days: 7
-
-      - name: Revoke app token
-        if: always()
-        shell: bash
-        run: |
-          if [ -f /tmp/app_token ]; then
-            token=$(cat /tmp/app_token)
-            curl -sS -X DELETE https://api.github.com/installation/token \
-              -H "Authorization: Bearer $token" \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              || true
-            rm -f /tmp/app_token
-          fi
