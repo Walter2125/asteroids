@@ -125,6 +125,7 @@ const SKINS = [
   { name: 'DARDO',   color: '#0ff', hull: [[24, 0], [-12, -5], [-8, 0], [-12, 5]] },
   { name: 'CAZA',    color: '#f0f', hull: [[18, 0], [2, -5], [-8, -14], [-5, -4], [-10, 0], [-5, 4], [-8, 14], [2, 5]] },
   { name: 'HALCÓN',  color: '#ff0', hull: [[20, 0], [0, -6], [-14, -12], [-8, 0], [-14, 12], [0, 6]] },
+  { name: 'GIGANTE', color: '#a020f0', hull: [[20, 0], [-12, -9], [-7, 0], [-12, 9]], scale: 2, mult: 2 },
 ];
 
 const SKIN_KEY = 'asteroids-skin';
@@ -155,7 +156,7 @@ class Ship {
     this.angle  = -Math.PI / 2;
     this.vx     = 0;
     this.vy     = 0;
-    this.radius = 12;
+    this.radius = 12 * (SKINS[skinIndex].scale || 1);
     this.thrusting     = false;
     this.invincible    = 3;
     this.shootCooldown = 0;
@@ -167,6 +168,7 @@ class Ship {
 
   update(dt) {
     if (this.dead) return;
+    this.radius = 12 * (SKINS[skinIndex].scale || 1);
     if (this.invincible    > 0) this.invincible    -= dt;
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
     if (this.speedBoost    > 0) this.speedBoost    -= dt;
@@ -196,7 +198,7 @@ class Ship {
   tryShoot() {
     if (this.shootCooldown > 0 || this.dead) return [];
     this.shootCooldown = 0.2;
-    const NOSE = 21;
+    const NOSE = 21 * (SKINS[skinIndex].scale || 1);
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
     if (this.tripleShot > 0) {
@@ -212,6 +214,7 @@ class Ship {
 
   draw() {
     if (this.dead) return;
+    const scale = SKINS[skinIndex].scale || 1;
 
     // Burbuja del escudo (visible incluso durante el parpadeo de reaparición)
     if (this.shield > 0) {
@@ -221,7 +224,7 @@ class Ship {
       ctx.strokeStyle = `rgba(80, 170, 255, ${pulse.toFixed(2)})`;
       ctx.lineWidth   = 1.5;
       ctx.beginPath();
-      ctx.arc(0, 0, 22, 0, Math.PI * 2);
+      ctx.arc(0, 0, 22 * scale, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
@@ -232,6 +235,7 @@ class Ship {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
+    ctx.scale(scale, scale);
     ctx.strokeStyle = SKINS[skinIndex].color;
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
@@ -534,7 +538,7 @@ function update(dt) {
       if (!a.dead && !b.dead && dist(b, a) < a.radius) {
         b.dead = true;
         a.dead = true;
-        score += POINTS[a.size];
+        score += POINTS[a.size] * (SKINS[skinIndex].mult || 1);
         explode(a.x, a.y, a.size * 5);
         if (Math.random() < 0.15) {
           const r = Math.random();
@@ -553,7 +557,7 @@ function update(dt) {
       if (!s.dead && !b.dead && dist(b, s) < s.radius) {
         b.dead = true;
         s.dead = true;
-        score += STAR_POINTS;
+        score += STAR_POINTS * (SKINS[skinIndex].mult || 1);
         explode(s.x, s.y, 14);
       }
     }
@@ -650,7 +654,14 @@ function drawHUD() {
   }
 
   ctx.textAlign = 'center';
+  ctx.fillStyle = '#fff';
   ctx.fillText(`NIVEL ${level}`, W / 2, 26);
+
+  const pointsMult = SKINS[skinIndex].mult || 1;
+  if (pointsMult > 1) {
+    ctx.fillStyle = SKINS[skinIndex].color;
+    ctx.fillText(`PUNTOS x${pointsMult}`, W / 2, 46);
+  }
 
   for (let i = 0; i < lives; i++)
     drawLifeIcon(W - 16 - i * 22, 18);
@@ -685,8 +696,18 @@ function drawGameOver() {
   ctx.fillStyle = skin.color;
   ctx.fillText(`‹ SKIN: ${skin.name} ›`, W / 2, H / 2 + 58);
 
+  const skinScale = skin.scale || 1;
+  const skinMult  = skin.mult || 1;
+  if (skinScale > 1 || skinMult > 1) {
+    const tags = [];
+    if (skinScale > 1) tags.push(`TAMAÑO x${skinScale}`);
+    if (skinMult  > 1) tags.push(`PUNTOS x${skinMult}`);
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.fillText(tags.join(' · '), W / 2, H / 2 + 80);
+  }
+
   ctx.fillStyle = 'rgba(255,255,255,0.65)';
-  ctx.fillText('← → SKIN   —   ESPACIO PARA REINICIAR', W / 2, H / 2 + 88);
+  ctx.fillText('← → SKIN   —   ESPACIO PARA REINICIAR', W / 2, H / 2 + 102);
 }
 
 function draw() {
