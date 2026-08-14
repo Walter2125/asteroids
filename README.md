@@ -52,3 +52,4 @@ Luego visita `http://localhost:3000`.
 - Estrella fugaz: asteroide especial que aparece cada 12 segundos; se mueve muy rápido con estela y desaparece a los 4 segundos. Otorga 300 puntos
 - Skins de nave: 5 apariencias (CLÁSICA, DARDO, CAZA, HALCÓN, GIGANTE) con silueta y color propios. Se cambian con `C` en juego o con `←` `→` en la pantalla de GAME OVER, y se guardan en `localStorage`
 - Skin GIGANTE: nave morada dos veces más grande que la original (su silueta y su hitbox se escalan x2, así es más fácil de impactar); al usarla, todos los puntos obtenidos (asteroides y estrella fugaz) se multiplican por 2 (indicador "x2" junto al SCORE en el HUD)
+- Responsivo: el lienzo se adapta al área visible manteniendo la proporción 4:3 (desktop, tablet y móvil)
